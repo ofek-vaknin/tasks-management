@@ -1,0 +1,53 @@
+# Build output
+/out/
+/target/
+/build/
+
+# IDE
+/.idea/
+/*.iml
+/lib/*.iml
+
+# Local Derby DB
+/derby.log
+/tasksdb/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# JUnit console jar (optional if stored locally)
+/junit-platform-console-standalone-*.jar
+
+### IntelliJ IDEA ###
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
