@@ -28,10 +28,11 @@ import java.time.format.DateTimeParseException;
  * TaskFormDialog is a reusable modal dialog for creating or editing tasks with validation.
  */
 public class TaskFormDialog extends JDialog {
-    private final JTextField titleField = new JTextField(20);
-    private final JTextField descField = new JTextField(30);
-    private final JComboBox<String> stateCombo = new JComboBox<>(new String[]{"TODO", "IN_PROGRESS", "COMPLETED"});
-    private final JTextField dueDateField = new JTextField(12);
+    private final JTextField titleField = new JTextField(20); // title input
+    private final JTextField descField = new JTextField(30); // description input
+    private final JComboBox<String> stateCombo = new JComboBox<>(new String[]{"TODO", "IN_PROGRESS", "COMPLETED"}); // state
+    private final JTextField dueDateField = new JTextField(12); // due date
+    private final JComboBox<String> recurrenceCombo = new JComboBox<>(new String[]{"NONE", "DAILY", "WEEKLY", "MONTHLY", "YEARLY"}); // recurrence pattern
 
     private boolean confirmed = false;
     private TaskInput taskInput;
@@ -56,6 +57,8 @@ public class TaskFormDialog extends JDialog {
         form.add(stateCombo);
         form.add(new JLabel("Due (YYYY-MM-DD):"));
         form.add(dueDateField);
+        form.add(new JLabel("Recurrence:"));
+        form.add(recurrenceCombo);
         add(form, BorderLayout.CENTER);
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
@@ -107,6 +110,11 @@ public class TaskFormDialog extends JDialog {
         String s = task.state() == null ? "TODO" : task.state().toString();
         stateCombo.setSelectedItem(s);
         dueDateField.setText(task.dueDate() == null ? "" : task.dueDate().toString());
+        if (task instanceof il.ac.hit.tasksmanager.model.RecurringTask r) {
+            recurrenceCombo.setSelectedItem(daysToPattern(r.recurrenceInterval()));
+        } else {
+            recurrenceCombo.setSelectedItem("NONE");
+        }
     }
 
     private TaskInput validateAndBuild() {
@@ -118,10 +126,14 @@ public class TaskFormDialog extends JDialog {
             if (!dueDateField.getText().trim().isEmpty()) {
                 due = LocalDate.parse(dueDateField.getText().trim());
             }
+            if (due != null && due.isBefore(LocalDate.now())) {
+                throw new IllegalArgumentException("Due date must be today or in the future");
+            }
             if (title == null || title.trim().isEmpty()) {
                 throw new IllegalArgumentException("Title is required");
             }
-            return new TaskInput(title.trim(), desc == null ? "" : desc.trim(), st, due);
+            int recDays = patternToDays((String) recurrenceCombo.getSelectedItem());
+            return new TaskInput(title.trim(), desc == null ? "" : desc.trim(), st, due, recDays);
         } catch (IllegalArgumentException | DateTimeParseException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Validation Error", JOptionPane.ERROR_MESSAGE);
             return null;
@@ -152,7 +164,28 @@ public class TaskFormDialog extends JDialog {
         }
     }
 
-    public record TaskInput(String title, String description, TaskState state, LocalDate dueDate) {}
+    private String daysToPattern(int days) {
+        return switch (days) {
+            case 1 -> "DAILY";
+            case 7 -> "WEEKLY";
+            case 30 -> "MONTHLY";
+            case 365 -> "YEARLY";
+            default -> "NONE";
+        };
+    }
+
+    private int patternToDays(String pattern) {
+        if (pattern == null) return 0;
+        switch (pattern) {
+            case "DAILY": return 1;
+            case "WEEKLY": return 7;
+            case "MONTHLY": return 30;
+            case "YEARLY": return 365;
+            default: return 0;
+        }
+    }
+
+    public record TaskInput(String title, String description, TaskState state, LocalDate dueDate, int recurrenceDays) {}
 }
 
 

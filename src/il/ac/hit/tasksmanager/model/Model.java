@@ -4,11 +4,12 @@ import il.ac.hit.tasksmanager.model.dao.ITasksDAO;
 import il.ac.hit.tasksmanager.model.dao.TasksDAOException;
 import il.ac.hit.tasksmanager.model.dao.TasksDAOProxy;
 import il.ac.hit.tasksmanager.model.dao.TasksDAOImpl;
-import il.ac.hit.tasksmanager.model.Task;
-import il.ac.hit.tasksmanager.model.BasicTask;
+import il.ac.hit.tasksmanager.model.entities.TaskState;
 import il.ac.hit.tasksmanager.model.entities.ToDoState;
 import il.ac.hit.tasksmanager.model.patterns.TaskObserver;
 
+import javax.swing.SwingUtilities;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -16,7 +17,6 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
-import javax.swing.SwingUtilities;
 
 /**
  * Model implements IModel with a DAO backend and an executor for async operations.
@@ -82,7 +82,11 @@ public class Model implements IModel {
 		});
 	}
 
-	public void addTask(String title, String description, il.ac.hit.tasksmanager.model.entities.TaskState state, java.time.LocalDate dueDate) throws ModelException {
+	public void addTask(String title, String description, TaskState state, LocalDate dueDate) throws ModelException {
+		// Validate due date is not in the past
+		if (dueDate != null && dueDate.isBefore(java.time.LocalDate.now())) {
+			throw new ModelException("Due date must be today or in the future");
+		}
 		executor.submit(() -> {
 			try {
 				dao.addTask(new BasicTask(0L, title, description, state == null ? new ToDoState() : state, dueDate));
@@ -90,6 +94,25 @@ public class Model implements IModel {
 				notifyObservers();
 			} catch (TasksDAOException e) {
 				System.err.println("Error adding task: " + e.getMessage());
+			}
+		});
+	}
+
+	public void addRecurringTask(String title, String description, TaskState state, LocalDate dueDate, int recurrenceDays) throws ModelException {
+		if (recurrenceDays <= 0) {
+			throw new ModelException("recurrenceDays must be positive");
+		}
+		if (dueDate != null && dueDate.isBefore(java.time.LocalDate.now())) {
+			throw new ModelException("Due date must be today or in the future");
+		}
+		executor.submit(() -> {
+			try {
+				RecurringTask rt = new RecurringTask(0L, title, description, state == null ? new ToDoState() : state, dueDate, recurrenceDays);
+				dao.addTask(rt);
+				cached = Arrays.asList(dao.getTasks());
+				notifyObservers();
+			} catch (TasksDAOException e) {
+				System.err.println("Error adding recurring task: " + e.getMessage());
 			}
 		});
 	}

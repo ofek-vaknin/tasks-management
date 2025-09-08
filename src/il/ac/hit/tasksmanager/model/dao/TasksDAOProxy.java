@@ -2,8 +2,8 @@ package il.ac.hit.tasksmanager.model.dao;
 
 import il.ac.hit.tasksmanager.model.Task;
 
-import java.util.HashMap;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -11,9 +11,9 @@ import java.util.Map;
  * TasksDAOProxy caches read operations and invalidates on writes.
  */
 public class TasksDAOProxy implements ITasksDAO {
-	private final ITasksDAO target;
-	private List<Task> cachedTasks;
-	private final Map<Long, Task> cachedById = new HashMap<>();
+	private final ITasksDAO target; // underlying DAO
+	private List<Task> cachedTasks; // cached list
+	private final Map<Long, Task> cachedById = new HashMap<>(); // cache by id
 
 	public TasksDAOProxy(ITasksDAO target) {
 		this.target = target;

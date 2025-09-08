@@ -1,5 +1,6 @@
 package il.ac.hit.tasksmanager;
 
+import il.ac.hit.tasksmanager.model.ModelException;
 import il.ac.hit.tasksmanager.view.MainWindow;
 import il.ac.hit.tasksmanager.viewmodel.TasksListViewModel;
 
@@ -11,11 +12,12 @@ import javax.swing.SwingUtilities;
 public class Main {
 	public static void main(String[] args) {
 		SwingUtilities.invokeLater(() -> {
+			// Launch on Event Dispatch Thread
 			try {
-				TasksListViewModel vm = new TasksListViewModel();
-				MainWindow window = new MainWindow(vm);
+				TasksListViewModel vm = new TasksListViewModel(); // ViewModel wiring
+				MainWindow window = new MainWindow(vm); // Main UI window
 				window.setVisible(true);
-			} catch (il.ac.hit.tasksmanager.model.ModelException e) {
+			} catch (ModelException e) {
 				e.printStackTrace();
 			}
 		});

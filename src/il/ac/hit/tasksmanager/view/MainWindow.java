@@ -62,7 +62,11 @@ public class MainWindow extends JFrame implements ViewModelObserver {
         if (dlg.isConfirmed() && dlg.getTaskInput() != null) {
             TaskFormDialog.TaskInput in = dlg.getTaskInput();
             try {
-                viewModel.addTask(in.title(), in.description(), in.state(), in.dueDate());
+                if (in.recurrenceDays() > 0) {
+                    viewModel.addRecurringTask(in.title(), in.description(), in.state(), in.dueDate(), in.recurrenceDays());
+                } else {
+                    viewModel.addTask(in.title(), in.description(), in.state(), in.dueDate());
+                }
             } catch (il.ac.hit.tasksmanager.model.ModelException e) {
                 JOptionPane.showMessageDialog(this, e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
@@ -84,7 +88,12 @@ public class MainWindow extends JFrame implements ViewModelObserver {
         dlg.setVisible(true);
         if (dlg.isConfirmed() && dlg.getTaskInput() != null && existing != null) {
             TaskFormDialog.TaskInput in = dlg.getTaskInput();
-            Task updated = new il.ac.hit.tasksmanager.model.BasicTask(existing.id(), in.title(), in.description(), in.state(), in.dueDate());
+            Task updated;
+            if (in.recurrenceDays() > 0) {
+                updated = new il.ac.hit.tasksmanager.model.RecurringTask(existing.id(), in.title(), in.description(), in.state(), in.dueDate(), in.recurrenceDays());
+            } else {
+                updated = new il.ac.hit.tasksmanager.model.BasicTask(existing.id(), in.title(), in.description(), in.state(), in.dueDate());
+            }
             try {
                 viewModel.updateTask(updated);
             } catch (il.ac.hit.tasksmanager.model.ModelException e) {
@@ -112,9 +121,10 @@ public class MainWindow extends JFrame implements ViewModelObserver {
     }
 
     private void onReport() {
+        il.ac.hit.tasksmanager.model.patterns.TaskFormatter formatter = new il.ac.hit.tasksmanager.model.patterns.TaskFormatter();
         StringBuilder sb = new StringBuilder();
         for (Task t : viewModel.getTasks()) {
-            sb.append("#").append(t.id()).append(" ").append(t.title()).append(" [").append(t.state()).append("]\n");
+            sb.append(formatter.format(t)).append("\n");
         }
         JOptionPane.showMessageDialog(this, sb.length() == 0 ? "No tasks." : sb.toString(), "Report", JOptionPane.INFORMATION_MESSAGE);
     }
