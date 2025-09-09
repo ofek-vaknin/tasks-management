@@ -2,7 +2,7 @@ package il.ac.hit.tasksmanager.model.dao;
 
 import il.ac.hit.tasksmanager.model.BasicTask;
 import il.ac.hit.tasksmanager.model.Task;
-import il.ac.hit.tasksmanager.model.entities.ToDoState;
+import il.ac.hit.tasksmanager.model.entities.state.ToDoState;
 import org.junit.jupiter.api.*;
 
 import java.time.LocalDate;
@@ -52,6 +52,8 @@ public class TasksDAOImplTest {
         assertNull(dao.getTask(t.id()));
     }
 }
+
+
 
 
 

@@ -2,9 +2,9 @@ package il.ac.hit.tasksmanager.model.combinator;
 
 import il.ac.hit.tasksmanager.model.BasicTask;
 import il.ac.hit.tasksmanager.model.Task;
-import il.ac.hit.tasksmanager.model.entities.ToDoState;
-import il.ac.hit.tasksmanager.model.entities.InProgressState;
-import il.ac.hit.tasksmanager.model.entities.CompletedState;
+import il.ac.hit.tasksmanager.model.entities.state.ToDoState;
+import il.ac.hit.tasksmanager.model.entities.state.InProgressState;
+import il.ac.hit.tasksmanager.model.entities.state.CompletedState;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -50,6 +50,8 @@ public class TaskFilterTest {
         assertTrue(titleA.or(titleB).matches(b));
     }
 }
+
+
 
 
 

@@ -1,10 +1,10 @@
 package il.ac.hit.tasksmanager.view;
 
 import il.ac.hit.tasksmanager.model.Task;
-import il.ac.hit.tasksmanager.model.entities.TaskState;
-import il.ac.hit.tasksmanager.model.entities.ToDoState;
-import il.ac.hit.tasksmanager.model.entities.InProgressState;
-import il.ac.hit.tasksmanager.model.entities.CompletedState;
+import il.ac.hit.tasksmanager.model.entities.state.TaskState;
+import il.ac.hit.tasksmanager.model.entities.state.ToDoState;
+import il.ac.hit.tasksmanager.model.entities.state.InProgressState;
+import il.ac.hit.tasksmanager.model.entities.state.CompletedState;
 
 import javax.swing.BorderFactory;
 import javax.swing.JComboBox;
@@ -16,6 +16,9 @@ import javax.swing.JButton;
 import javax.swing.JTextField;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.Frame;
 import java.awt.event.KeyEvent;
 import java.awt.event.ActionEvent;
@@ -25,14 +28,18 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 
 /**
- * TaskFormDialog is a reusable modal dialog for creating or editing tasks with validation.
+ * TaskFormDialog is a reusable modal dialog for creating or editing tasks.
+ * It validates title, due date (not in the past), and requires interval
+ * when the task type is RECURRING.
  */
 public class TaskFormDialog extends JDialog {
     private final JTextField titleField = new JTextField(20); // title input
     private final JTextField descField = new JTextField(30); // description input
     private final JComboBox<String> stateCombo = new JComboBox<>(new String[]{"TODO", "IN_PROGRESS", "COMPLETED"}); // state
     private final JTextField dueDateField = new JTextField(12); // due date
-    private final JComboBox<String> recurrenceCombo = new JComboBox<>(new String[]{"NONE", "DAILY", "WEEKLY", "MONTHLY", "YEARLY"}); // recurrence pattern
+    private final JComboBox<String> typeCombo = new JComboBox<>(new String[]{"BASIC", "RECURRING"}); // task type
+    private final JLabel intervalLabel = new JLabel("Interval (days):"); // interval label
+    private final JTextField intervalField = new JTextField(6); // interval input
 
     private boolean confirmed = false;
     private TaskInput taskInput;
@@ -47,19 +54,50 @@ public class TaskFormDialog extends JDialog {
         setTitle("Task Details");
         setLayout(new BorderLayout(8, 8));
         // === Build form ===
-        JPanel form = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
+        JPanel form = new JPanel(new GridBagLayout());
         form.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        form.add(new JLabel("Title:"));
-        form.add(titleField);
-        form.add(new JLabel("Description:"));
-        form.add(descField);
-        form.add(new JLabel("State:"));
-        form.add(stateCombo);
-        form.add(new JLabel("Due (YYYY-MM-DD):"));
-        form.add(dueDateField);
-        form.add(new JLabel("Recurrence:"));
-        form.add(recurrenceCombo);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(6, 6, 6, 6);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        gbc.gridy = 0; gbc.gridx = 0;
+        form.add(new JLabel("Title:"), gbc);
+        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+        form.add(titleField, gbc);
+
+        gbc.gridy = 1; gbc.gridx = 0; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0.0;
+        form.add(new JLabel("Description:"), gbc);
+        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+        form.add(descField, gbc);
+
+        gbc.gridy = 2; gbc.gridx = 0; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0.0;
+        form.add(new JLabel("State:"), gbc);
+        gbc.gridx = 1;
+        form.add(stateCombo, gbc);
+
+        gbc.gridy = 3; gbc.gridx = 0;
+        form.add(new JLabel("Due (YYYY-MM-DD):"), gbc);
+        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+        form.add(dueDateField, gbc);
+
+        gbc.gridy = 4; gbc.gridx = 0; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0.0;
+        form.add(new JLabel("Type:"), gbc);
+        gbc.gridx = 1;
+        form.add(typeCombo, gbc);
+
+        gbc.gridy = 5; gbc.gridx = 0;
+        form.add(intervalLabel, gbc);
+        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+        form.add(intervalField, gbc);
         add(form, BorderLayout.CENTER);
+
+        intervalLabel.setVisible(false);
+        intervalField.setVisible(false);
+        typeCombo.addActionListener(e -> {
+            boolean isRecurring = "RECURRING".equals(typeCombo.getSelectedItem());
+            intervalLabel.setVisible(isRecurring);
+            intervalField.setVisible(isRecurring);
+        });
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
         JButton okButton = new JButton("OK");
@@ -111,9 +149,15 @@ public class TaskFormDialog extends JDialog {
         stateCombo.setSelectedItem(s);
         dueDateField.setText(task.dueDate() == null ? "" : task.dueDate().toString());
         if (task instanceof il.ac.hit.tasksmanager.model.RecurringTask r) {
-            recurrenceCombo.setSelectedItem(daysToPattern(r.recurrenceInterval()));
+            typeCombo.setSelectedItem("RECURRING");
+            intervalField.setText(Integer.toString(r.interval()));
+            intervalLabel.setVisible(true);
+            intervalField.setVisible(true);
         } else {
-            recurrenceCombo.setSelectedItem("NONE");
+            typeCombo.setSelectedItem("BASIC");
+            intervalField.setText("");
+            intervalLabel.setVisible(false);
+            intervalField.setVisible(false);
         }
     }
 
@@ -132,7 +176,24 @@ public class TaskFormDialog extends JDialog {
             if (title == null || title.trim().isEmpty()) {
                 throw new IllegalArgumentException("Title is required");
             }
-            int recDays = patternToDays((String) recurrenceCombo.getSelectedItem());
+            int recDays = 0;
+            boolean isRecurring = "RECURRING".equals(typeCombo.getSelectedItem());
+            if (isRecurring) {
+                String txt = intervalField.getText() == null ? "" : intervalField.getText().trim();
+                if (txt.isEmpty()) {
+                    throw new IllegalArgumentException("Interval is required for RECURRING tasks");
+                }
+                int days;
+                try {
+                    days = Integer.parseInt(txt);
+                } catch (NumberFormatException nfe) {
+                    throw new IllegalArgumentException("Interval must be a positive integer");
+                }
+                if (days <= 0) {
+                    throw new IllegalArgumentException("Interval must be a positive integer");
+                }
+                recDays = days;
+            }
             return new TaskInput(title.trim(), desc == null ? "" : desc.trim(), st, due, recDays);
         } catch (IllegalArgumentException | DateTimeParseException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Validation Error", JOptionPane.ERROR_MESSAGE);
@@ -164,26 +225,7 @@ public class TaskFormDialog extends JDialog {
         }
     }
 
-    private String daysToPattern(int days) {
-        return switch (days) {
-            case 1 -> "DAILY";
-            case 7 -> "WEEKLY";
-            case 30 -> "MONTHLY";
-            case 365 -> "YEARLY";
-            default -> "NONE";
-        };
-    }
-
-    private int patternToDays(String pattern) {
-        if (pattern == null) return 0;
-        switch (pattern) {
-            case "DAILY": return 1;
-            case "WEEKLY": return 7;
-            case "MONTHLY": return 30;
-            case "YEARLY": return 365;
-            default: return 0;
-        }
-    }
+    // removed legacy recurrence pattern helpers (replaced by explicit Type + Interval)
 
     public record TaskInput(String title, String description, TaskState state, LocalDate dueDate, int recurrenceDays) {}
 }

@@ -1,7 +1,7 @@
 package il.ac.hit.tasksmanager.model;
 
-import il.ac.hit.tasksmanager.model.patterns.TaskObserver;
-import il.ac.hit.tasksmanager.model.entities.TaskState;
+import il.ac.hit.tasksmanager.model.observer.TaskObserver;
+import il.ac.hit.tasksmanager.model.entities.state.TaskState;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -33,7 +33,7 @@ public interface IModel {
 	/** Updates an existing task by ID. */
 	void updateTask(Task task) throws ModelException;
 	/** Deletes a task by ID. */
-	void deleteTask(long id) throws ModelException;
+	void deleteTask(int id) throws ModelException;
 
 	/** Registers an observer for model changes. */
 	void register(TaskObserver observer);

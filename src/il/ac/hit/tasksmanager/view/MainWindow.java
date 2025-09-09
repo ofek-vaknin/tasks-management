@@ -1,10 +1,14 @@
 package il.ac.hit.tasksmanager.view;
 
 import il.ac.hit.tasksmanager.model.Task;
-import il.ac.hit.tasksmanager.model.entities.TaskState;
+import il.ac.hit.tasksmanager.model.BasicTask;
+import il.ac.hit.tasksmanager.model.RecurringTask;
+import il.ac.hit.tasksmanager.model.ModelException;
+import il.ac.hit.tasksmanager.model.entities.state.TaskState;
 import il.ac.hit.tasksmanager.viewmodel.TasksListViewModel;
 import il.ac.hit.tasksmanager.viewmodel.observer.ViewModelObserver;
 import il.ac.hit.tasksmanager.model.combinator.TaskFilter;
+import il.ac.hit.tasksmanager.model.visitor.GUIReportVisitor;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -14,7 +18,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * MainWindow is the primary Swing frame binding the view model to UI panels.
+ * MainWindow is the primary Swing frame that binds the view model to
+ * UI panels (filters, actions, and table). All UI interactions occur
+ * on the EDT.
  */
 public class MainWindow extends JFrame implements ViewModelObserver {
     private final TasksListViewModel viewModel;
@@ -37,7 +43,7 @@ public class MainWindow extends JFrame implements ViewModelObserver {
         });
 
         JPanel top = new JPanel(new BorderLayout());
-        top.add(filterPanel, BorderLayout.WEST);
+        top.add(filterPanel, BorderLayout.CENTER);
         top.add(new ActionsPanel(
                 this::onAdd,
                 this::onEdit,
@@ -56,7 +62,14 @@ public class MainWindow extends JFrame implements ViewModelObserver {
         refreshTable();
     }
 
+    /**
+     * Handles the Add action by opening the form dialog and delegating creation
+     * to the view model according to the user's input.
+     */
     private void onAdd() {
+        /**
+         * Open a modal dialog to collect task input and delegate add to the view model.
+         */
         TaskFormDialog dlg = new TaskFormDialog(this);
         dlg.setVisible(true);
         if (dlg.isConfirmed() && dlg.getTaskInput() != null) {
@@ -67,19 +80,27 @@ public class MainWindow extends JFrame implements ViewModelObserver {
                 } else {
                     viewModel.addTask(in.title(), in.description(), in.state(), in.dueDate());
                 }
-            } catch (il.ac.hit.tasksmanager.model.ModelException e) {
+            } catch (ModelException e) {
                 JOptionPane.showMessageDialog(this, e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
+    /**
+     * Handles the Edit action by editing the first selected task and delegating
+     * the update to the view model.
+     */
     private void onEdit() {
+        /**
+         * Edit the first selected task. We read the selection from the table,
+         * show the dialog pre-populated, and forward update to the view model.
+         */
         List<Long> ids = tablePanel.getSelectedTaskIds();
         if (ids.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please select a task to edit.");
             return;
         }
-        long id = ids.get(0);
+        int id = ids.get(0).intValue();
         Task existing = viewModel.getTasks().stream().filter(t -> t.id() == id).findFirst().orElse(null);
         TaskFormDialog dlg = new TaskFormDialog(this);
         if (existing != null) {
@@ -90,19 +111,25 @@ public class MainWindow extends JFrame implements ViewModelObserver {
             TaskFormDialog.TaskInput in = dlg.getTaskInput();
             Task updated;
             if (in.recurrenceDays() > 0) {
-                updated = new il.ac.hit.tasksmanager.model.RecurringTask(existing.id(), in.title(), in.description(), in.state(), in.dueDate(), in.recurrenceDays());
+                updated = new RecurringTask(existing.id(), in.title(), in.description(), in.state(), in.dueDate(), in.recurrenceDays());
             } else {
-                updated = new il.ac.hit.tasksmanager.model.BasicTask(existing.id(), in.title(), in.description(), in.state(), in.dueDate());
+                updated = new BasicTask(existing.id(), in.title(), in.description(), in.state(), in.dueDate());
             }
             try {
                 viewModel.updateTask(updated);
-            } catch (il.ac.hit.tasksmanager.model.ModelException e) {
+            } catch (ModelException e) {
                 JOptionPane.showMessageDialog(this, e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
+    /**
+     * Handles the Delete action by removing all selected tasks after user confirmation.
+     */
     private void onDelete() {
+        /**
+         * Delete all selected tasks after confirmation by delegating to the view model.
+         */
         List<Long> ids = tablePanel.getSelectedTaskIds();
         if (ids.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please select at least one task to delete.");
@@ -112,24 +139,38 @@ public class MainWindow extends JFrame implements ViewModelObserver {
         if (confirm != JOptionPane.YES_OPTION) return;
         for (Long id : ids) {
             try {
-                viewModel.deleteTask(id);
-            } catch (il.ac.hit.tasksmanager.model.ModelException e) {
+                viewModel.deleteTask(id.intValue());
+            } catch (ModelException e) {
                 JOptionPane.showMessageDialog(this, e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 break;
             }
         }
     }
 
+    /**
+     * Generates and displays a simple textual report of all tasks using the Visitor.
+     */
     private void onReport() {
-        il.ac.hit.tasksmanager.model.patterns.TaskFormatter formatter = new il.ac.hit.tasksmanager.model.patterns.TaskFormatter();
+        /**
+         * Compose a simple report by visiting each task and showing the output.
+         */
+        GUIReportVisitor visitor = new GUIReportVisitor();
         StringBuilder sb = new StringBuilder();
         for (Task t : viewModel.getTasks()) {
-            sb.append(formatter.format(t)).append("\n");
+            // Visit each task for formatting
+            sb.append(visitor.format(t)).append("\n");
         }
-        JOptionPane.showMessageDialog(this, sb.length() == 0 ? "No tasks." : sb.toString(), "Report", JOptionPane.INFORMATION_MESSAGE);
+        String report = sb.length() == 0 ? "No tasks." : sb.toString();
+        JOptionPane.showMessageDialog(this, report, "Task Report", JOptionPane.INFORMATION_MESSAGE);
     }
 
+    /**
+     * Refreshes the table data based on the current filter (Combinator predicate).
+     */
     private void refreshTable() {
+        /**
+         * Refresh the table according to the current filter (combinator-based predicate).
+         */
         List<Task> tasks = currentFilter == null ? viewModel.getTasks() : viewModel.getFilteredTasks(currentFilter);
         tablePanel.setTasks(tasks);
     }

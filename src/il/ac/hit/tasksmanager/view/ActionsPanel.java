@@ -5,9 +5,19 @@ import javax.swing.JPanel;
 import java.awt.FlowLayout;
 
 /**
- * ActionsPanel presents the primary actions for tasks: Add, Edit, Delete, Refresh, and Generate Report.
+ * ActionsPanel presents the primary actions for tasks: Add, Edit, Delete,
+ * Refresh, and Generate Report. Each button triggers a corresponding
+ * callback provided by the owning frame.
  */
 public class ActionsPanel extends JPanel {
+    /**
+     * Creates the actions toolbar.
+     * @param onAdd invoked when Add is pressed
+     * @param onEdit invoked when Edit is pressed
+     * @param onDelete invoked when Delete is pressed
+     * @param onRefresh invoked when Refresh is pressed
+     * @param onReport invoked when Generate Report is pressed
+     */
     public ActionsPanel(Runnable onAdd, Runnable onEdit, Runnable onDelete, Runnable onRefresh, Runnable onReport) {
         // === Build actions bar ===
         setLayout(new FlowLayout(FlowLayout.RIGHT, 8, 8));
