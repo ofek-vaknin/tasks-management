@@ -1,9 +1,10 @@
 package il.ac.hit.tasksmanager.model.dao;
 
-import il.ac.hit.tasksmanager.model.Task;
+import il.ac.hit.tasksmanager.model.entities.ITask;
 
 /**
  * ITasksDAO defines CRUD operations for tasks persisted in Derby.
+ * Matches the lecturer's required interface signatures.
  */
 public interface ITasksDAO {
 
@@ -13,38 +14,37 @@ public interface ITasksDAO {
      * @return array of tasks
      * @throws TasksDAOException if a database access error occurs
      */
-    Task[] getTasks() throws TasksDAOException;
+    ITask[] getTasks() throws TasksDAOException;
 
     /**
      * Returns a single task by ID or null if not found.
      *
      * @param id the ID of the task to retrieve
-     * @return the Task instance or null if not found
+     * @return the task instance or null if not found
      * @throws TasksDAOException if a database access error occurs
      */
-    Task getTask(int id) throws TasksDAOException;
+    ITask getTask(int id) throws TasksDAOException;
 
     /**
-     * Adds a new task and returns the created instance with generated ID.
+     * Adds a new task.
      *
-     * @param task the Task to add
-     * @return the created Task with generated ID
+     * @param task the task to add
      * @throws TasksDAOException if a database access error occurs
      */
-    Task addTask(Task task) throws TasksDAOException;
+    void addTask(ITask task) throws TasksDAOException;
 
     /**
      * Updates an existing task.
      *
-     * @param task the Task to update
+     * @param task the task to update
      * @throws TasksDAOException if a database access error occurs
      */
-    void updateTask(Task task) throws TasksDAOException;
+    void updateTask(ITask task) throws TasksDAOException;
 
     /**
      * Deletes a task by ID.
      *
-     * @param id the ID of the Task to delete
+     * @param id the ID of the task to delete
      * @throws TasksDAOException if a database access error occurs
      */
     void deleteTask(int id) throws TasksDAOException;

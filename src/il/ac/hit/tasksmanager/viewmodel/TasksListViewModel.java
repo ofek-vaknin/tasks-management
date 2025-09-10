@@ -9,25 +9,56 @@ import il.ac.hit.tasksmanager.model.entities.state.TaskState;
 import il.ac.hit.tasksmanager.model.entities.state.ToDoState;
 import il.ac.hit.tasksmanager.model.observer.TaskObserver;
 import il.ac.hit.tasksmanager.viewmodel.observer.ViewModelObserver;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import javax.swing.SwingUtilities;
 
 /**
- * TasksListViewModel exposes tasks and asynchronous operations to Swing views,
- * forwarding calls to {@link il.ac.hit.tasksmanager.model.IModel} and notifying
- * registered observers on updates.
+ * TasksListViewModel acts as the bridge between the Model and the Views
+ * in the MVVM architecture.
+ * It plays a dual role in the Observer pattern:
+ * 1. As an Observer of the Model:
+ *    - Implements TaskObserver.
+ *    - Registers itself to Model.
+ *    - Reacts to changes in the task data (add/update/delete/load)
+ *      via onTasksChanged().
+ * 2. As a Subject for the Views:
+ *    - Maintains a list of registered ViewModelObservers (typically Views).
+ *    - Notifies them (via update()) whenever the task list changes.
+ *    - Ensures that UI updates happen on the Swing EDT
+ *      using SwingUtilities.invokeLater.
+ * In summary:
+ * - Observer facing the Model.
+ * - Subject facing the Views.
+ * - This makes TasksListViewModel a classic ViewModel in MVVM,
+ *   translating domain changes into UI updates.
  */
+
 public class TasksListViewModel implements TaskObserver {
-	private final IModel model; // model dependency
-	private final List<ViewModelObserver> observers = new ArrayList<>(); // view observers
+	private IModel model;
+	private final List<ViewModelObserver> observers = new ArrayList<>();
 
 	public TasksListViewModel() throws ModelException {
-		this.model = new Model();
+		/*
+		 * Initialize ViewModel with a concrete Model using a setter
+		 * to centralize validation and future wiring.
+		 */
+		setModel(new Model());
 		this.model.register(this);
 		this.model.loadData();
+	}
+
+	/** Sets the backing model (must not be null). */
+	public synchronized void setModel(IModel model) {
+		/*
+		 * Subject/Observer wiring point:
+		 * - Validate and assign the model reference used by this ViewModel.
+		 */
+		if (model == null) {
+			throw new IllegalArgumentException("model must not be null");
+		}
+		this.model = model;
 	}
 
 	/** Returns the current list of tasks from the model. */
@@ -38,16 +69,6 @@ public class TasksListViewModel implements TaskObserver {
 	/** Returns tasks matching the provided filter. */
 	public List<Task> getFilteredTasks(TaskFilter filter) {
 		return model.getTasks().stream().filter(filter::matches).collect(Collectors.toList());
-	}
-
-	/** Fetches tasks asynchronously and passes them to the callback. */
-	public void getTasksAsync(Consumer<Task[]> callback) {
-		model.getTasksAsync(callback);
-	}
-
-	/** Adds a new basic task with default state. */
-	public void addTask(String title, String description) throws ModelException {
-		model.addTask(title, description);
 	}
 
 	/** Adds a basic task with explicit state and due date. */
@@ -88,10 +109,17 @@ public class TasksListViewModel implements TaskObserver {
 
 	/** Registers a view observer. */
 	public void registerObserver(ViewModelObserver observer) {
+		/*
+		 * Subject side of Observer: allow views to subscribe for updates
+		 * from this ViewModel.
+		 */
 		observers.add(observer);
 	}
 
 	private void notifyObservers() {
+		/*
+		 * Notify subscribed views (ViewModelObserver) that data has changed.
+		 */
 		for (ViewModelObserver o : observers) {
 			o.update();
 		}
@@ -99,7 +127,10 @@ public class TasksListViewModel implements TaskObserver {
 
 	@Override
 	public void onTasksChanged() {
-		notifyObservers();
+		/*
+		 * Observer callback from Model -> re-dispatch to views on EDT.
+		 */
+		SwingUtilities.invokeLater(this::notifyObservers);
 	}
 }
 

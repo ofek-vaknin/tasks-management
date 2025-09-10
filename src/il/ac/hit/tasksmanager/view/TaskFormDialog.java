@@ -5,6 +5,7 @@ import il.ac.hit.tasksmanager.model.entities.state.TaskState;
 import il.ac.hit.tasksmanager.model.entities.state.ToDoState;
 import il.ac.hit.tasksmanager.model.entities.state.InProgressState;
 import il.ac.hit.tasksmanager.model.entities.state.CompletedState;
+import il.ac.hit.tasksmanager.view.dto.TaskInput;
 
 import javax.swing.BorderFactory;
 import javax.swing.JComboBox;
@@ -33,13 +34,13 @@ import java.time.format.DateTimeParseException;
  * when the task type is RECURRING.
  */
 public class TaskFormDialog extends JDialog {
-    private final JTextField titleField = new JTextField(20); // title input
-    private final JTextField descField = new JTextField(30); // description input
-    private final JComboBox<String> stateCombo = new JComboBox<>(new String[]{"TODO", "IN_PROGRESS", "COMPLETED"}); // state
-    private final JTextField dueDateField = new JTextField(12); // due date
-    private final JComboBox<String> typeCombo = new JComboBox<>(new String[]{"BASIC", "RECURRING"}); // task type
-    private final JLabel intervalLabel = new JLabel("Interval (days):"); // interval label
-    private final JTextField intervalField = new JTextField(6); // interval input
+    private final JTextField titleField = new JTextField(20);
+    private final JTextField descField = new JTextField(30);
+    private final JComboBox<String> stateCombo = new JComboBox<>(new String[]{"TODO", "IN_PROGRESS", "COMPLETED"});
+    private final JTextField dueDateField = new JTextField(12);
+    private final JComboBox<String> typeCombo = new JComboBox<>(new String[]{"BASIC", "RECURRING"});
+    private final JLabel intervalLabel = new JLabel("Interval (days):");
+    private final JTextField intervalField = new JTextField(6);
 
     private boolean confirmed = false;
     private TaskInput taskInput;
@@ -138,6 +139,7 @@ public class TaskFormDialog extends JDialog {
 
     /**
      * Pre-populates the dialog with an existing task.
+     * Updates UI controls to reflect the given task's fields (state, type, due date).
      *
      * @param task existing task (nullable)
      */
@@ -162,6 +164,13 @@ public class TaskFormDialog extends JDialog {
     }
 
     private TaskInput validateAndBuild() {
+        /*
+         * Validation + DTO build flow:
+         * - Read fields (title, description, state, due)
+         * - Validate title non-empty and due date not in the past
+         * - If type is RECURRING, validate positive integer interval
+         * - Build immutable TaskInput DTO for the caller (MainWindow)
+         */
         try {
             String title = titleField.getText();
             String desc = descField.getText();
@@ -226,8 +235,6 @@ public class TaskFormDialog extends JDialog {
     }
 
     // removed legacy recurrence pattern helpers (replaced by explicit Type + Interval)
-
-    public record TaskInput(String title, String description, TaskState state, LocalDate dueDate, int recurrenceDays) {}
 }
 
 

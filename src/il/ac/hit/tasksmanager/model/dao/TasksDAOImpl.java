@@ -3,6 +3,7 @@ package il.ac.hit.tasksmanager.model.dao;
 import il.ac.hit.tasksmanager.model.BasicTask;
 import il.ac.hit.tasksmanager.model.RecurringTask;
 import il.ac.hit.tasksmanager.model.Task;
+import il.ac.hit.tasksmanager.model.entities.ITask;
 import il.ac.hit.tasksmanager.model.entities.state.CompletedState;
 import il.ac.hit.tasksmanager.model.entities.state.InProgressState;
 import il.ac.hit.tasksmanager.model.entities.state.TaskState;
@@ -63,10 +64,7 @@ public class TasksDAOImpl implements ITasksDAO {
 	 * @throws SQLException if the connection cannot be established
 	 */
 	private Connection getConnection() throws SQLException {
-		/*
-		 * Open a short-lived connection for a single operation to keep the
-		 * DAO stateless and avoid connection leaks.
-		 */
+		/* new connection per op to avoid leaks */
 		return DriverManager.getConnection(DB_URL);
 	}
 
@@ -77,6 +75,7 @@ public class TasksDAOImpl implements ITasksDAO {
 	 * @throws TasksDAOException on schema initialization failure
 	 */
 	private void initSchema() throws TasksDAOException {
+		// schema bootstrap
 		try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
 			try {
 				stmt.executeUpdate(
@@ -89,20 +88,14 @@ public class TasksDAOImpl implements ITasksDAO {
 					"RECURRENCE_DAYS INT)"
 				);
 			} catch (SQLException e) {
-				/*
-				 * Derby error X0Y32 indicates the table already exists. Any other error
-				 * should be rethrown to be handled by the caller.
-				 */
+				// table exists (X0Y32) → ignore
 				if (!"X0Y32".equals(e.getSQLState())) {
 					throw e;
 				}
 			}
-			try {
-				stmt.executeUpdate("ALTER TABLE TASKS ADD COLUMN DUEDATE DATE");
-			} catch (SQLException ignore) { }
-			try {
-				stmt.executeUpdate("ALTER TABLE TASKS ADD COLUMN RECURRENCE_DAYS INT");
-			} catch (SQLException ignore) { }
+			// attempt additive DDL (idempotent)
+			try { stmt.executeUpdate("ALTER TABLE TASKS ADD COLUMN DUEDATE DATE"); } catch (SQLException ignore) { }
+			try { stmt.executeUpdate("ALTER TABLE TASKS ADD COLUMN RECURRENCE_DAYS INT"); } catch (SQLException ignore) { }
 		} catch (SQLException e) {
 			throw new TasksDAOException("Failed to initialize schema", e);
 		}
@@ -116,6 +109,7 @@ public class TasksDAOImpl implements ITasksDAO {
 	 * @throws TasksDAOException when the query fails
 	 */
 	private int nextId() throws TasksDAOException {
+		// id generation via MAX(ID)+1
 		try (Connection conn = getConnection(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery("SELECT MAX(ID) FROM TASKS")) {
 			if (rs.next()) {
 				int max = rs.getInt(1);
@@ -130,69 +124,49 @@ public class TasksDAOImpl implements ITasksDAO {
 		}
 	}
 
-	@Override
 	/**
 	 * Inserts a new task into the TASKS table.
 	 *
 	 * @param task task to persist
-	 * @return the created task instance with generated id
 	 * @throws TasksDAOException when the insert fails
 	 */
-	public Task addTask(Task task) throws TasksDAOException {
-		// Validate input
+    @Override
+	public void addTask(ITask task) throws TasksDAOException {
 		if (task == null) {
 			throw new TasksDAOException("task must not be null");
 		}
-		Task toInsert = task;
+		// insert row
 		int id = nextId();
-		// Open connection and prepare insert
 		try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement("INSERT INTO TASKS (ID, TITLE, DESCRIPTION, STATE, DUEDATE, RECURRENCE_DAYS) VALUES (?, ?, ?, ?, ?, ?)")) {
-			/*
-			 * Map the Task record into relational columns. For recurring tasks we
-			 * store the interval (in days) in RECURRENCE_DAYS; otherwise the column is NULL.
-			 */
 			ps.setInt(1, id);
-			ps.setString(2, toInsert.title());
-			ps.setString(3, toInsert.description());
-			ps.setString(4, toInsert.state().name());
-			if (toInsert.dueDate() != null) {
-				ps.setDate(5, Date.valueOf(toInsert.dueDate()));
-			} else {
-				ps.setNull(5, Types.DATE);
-			}
+			ps.setString(2, task.getTitle());
+			ps.setString(3, task.getDescription());
+			ps.setString(4, task.getState().name());
+			java.time.LocalDate due = null;
 			int recurrenceDays = 0;
-			if (toInsert instanceof RecurringTask rtask) {
-				recurrenceDays = rtask.interval();
+			if (task instanceof Task mt) {
+				due = mt.dueDate();
+				if (mt instanceof RecurringTask rtask) { recurrenceDays = rtask.interval(); }
 			}
-			if (recurrenceDays > 0) {
-				ps.setInt(6, recurrenceDays);
-			} else {
-				ps.setNull(6, Types.INTEGER);
-			}
-			// Execute insert
+			if (due != null) { ps.setDate(5, Date.valueOf(due)); } else { ps.setNull(5, Types.DATE); }
+			if (recurrenceDays > 0) { ps.setInt(6, recurrenceDays); } else { ps.setNull(6, Types.INTEGER); }
 			ps.executeUpdate();
-			if (toInsert instanceof BasicTask b) {
-				return new BasicTask(id, b.title(), b.description(), b.state(), b.dueDate());
-			} else if (toInsert instanceof RecurringTask r) {
-				return new RecurringTask(id, r.title(), r.description(), r.state(), r.dueDate(), r.interval());
-			}
-			return toInsert;
 		} catch (SQLException e) {
 			throw new TasksDAOException("Failed to add task", e);
 		}
 	}
 
-	@Override
 	/**
 	 * Reads all tasks ordered by ID and maps each row into a Task record.
 	 *
 	 * @return array of tasks (possibly empty)
 	 * @throws TasksDAOException when the query fails
 	 */
-	public Task[] getTasks() throws TasksDAOException {
+    @Override
+	public ITask[] getTasks() throws TasksDAOException {
 		List<Task> tasks = new ArrayList<>();
+		// query and map rows
 		try (Connection conn = getConnection(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery("SELECT ID, TITLE, DESCRIPTION, STATE, DUEDATE, RECURRENCE_DAYS FROM TASKS ORDER BY ID")) {
-			/* Map each result row to a BasicTask or RecurringTask depending on RECURRENCE_DAYS. */
 			while (rs.next()) {
 				int id = rs.getInt("ID");
 				String title = rs.getString("TITLE");
@@ -212,13 +186,12 @@ public class TasksDAOImpl implements ITasksDAO {
 					tasks.add(new BasicTask(id, title, description, state, dueSql == null ? null : dueSql.toLocalDate()));
 				}
 			}
-			return tasks.toArray(new Task[0]);
+			return tasks.toArray(new ITask[0]);
 		} catch (SQLException e) {
 			throw new TasksDAOException("Failed to fetch tasks", e);
 		}
 	}
 
-	@Override
 	/**
 	 * Reads a single task by id.
 	 *
@@ -226,15 +199,14 @@ public class TasksDAOImpl implements ITasksDAO {
 	 * @return the task if found, otherwise null
 	 * @throws TasksDAOException when the query fails
 	 */
-	public Task getTask(int id) throws TasksDAOException {
-		// Validate parameters
-		if (id <= 0) {
-			throw new TasksDAOException("id must be positive");
-		}
+    @Override
+	public ITask getTask(int id) throws TasksDAOException {
+		// validate
+		if (id <= 0) { throw new TasksDAOException("id must be positive"); }
+		// query single row
 		try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement("SELECT ID, TITLE, DESCRIPTION, STATE, DUEDATE, RECURRENCE_DAYS FROM TASKS WHERE ID = ?")) {
 			ps.setLong(1, id);
 			try (ResultSet rs = ps.executeQuery()) {
-				/* Map a single row into a domain record or return null when not present. */
 				if (rs.next()) {
 					String title = rs.getString("TITLE");
 					String description = rs.getString("DESCRIPTION");
@@ -248,11 +220,9 @@ public class TasksDAOImpl implements ITasksDAO {
 						default -> new ToDoState();
 					};
 					int rid = rs.getInt("ID");
-					if (recDays != null && recDays > 0) {
-						return new RecurringTask(rid, title, description, state, dueSql == null ? null : dueSql.toLocalDate(), recDays);
-					} else {
-						return new BasicTask(rid, title, description, state, dueSql == null ? null : dueSql.toLocalDate());
-					}
+					return (recDays != null && recDays > 0)
+						? new RecurringTask(rid, title, description, state, dueSql == null ? null : dueSql.toLocalDate(), recDays)
+						: new BasicTask(rid, title, description, state, dueSql == null ? null : dueSql.toLocalDate());
 				}
 				return null;
 			}
@@ -261,56 +231,42 @@ public class TasksDAOImpl implements ITasksDAO {
 		}
 	}
 
-	@Override
 	/**
 	 * Updates an existing task in the TASKS table.
 	 *
 	 * @param task task with new values
 	 * @throws TasksDAOException when the update fails
 	 */
-	public void updateTask(Task task) throws TasksDAOException {
-		// Validate input
-		if (task == null) {
-			throw new TasksDAOException("task must not be null");
-		}
+    @Override
+    public void updateTask(ITask task) throws TasksDAOException {
+		// validate
+		if (task == null) { throw new TasksDAOException("task must not be null"); }
+		// perform update
 		try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement("UPDATE TASKS SET TITLE = ?, DESCRIPTION = ?, STATE = ?, DUEDATE = ?, RECURRENCE_DAYS = ? WHERE ID = ?")) {
-			/* Persist new scalar values; for non-recurring tasks set RECURRENCE_DAYS to NULL. */
-			ps.setString(1, task.title());
-			ps.setString(2, task.description());
-			ps.setString(3, task.state().name());
-			if (task.dueDate() != null) {
-				ps.setDate(4, Date.valueOf(task.dueDate()));
-			} else {
-				ps.setNull(4, Types.DATE);
-			}
-			int recurrenceDays = 0;
-			if (task instanceof RecurringTask rtask) {
-				recurrenceDays = rtask.interval();
-			}
-			if (recurrenceDays > 0) {
-				ps.setInt(5, recurrenceDays);
-			} else {
-				ps.setNull(5, Types.INTEGER);
-			}
-			ps.setLong(6, task.id());
+			ps.setString(1, task.getTitle());
+			ps.setString(2, task.getDescription());
+			ps.setString(3, task.getState().name());
+			java.time.LocalDate due = null; int recurrenceDays = 0;
+			if (task instanceof Task mt) { due = mt.dueDate(); if (mt instanceof RecurringTask rtask) { recurrenceDays = rtask.interval(); } }
+			if (due != null) { ps.setDate(4, Date.valueOf(due)); } else { ps.setNull(4, Types.DATE); }
+			if (recurrenceDays > 0) { ps.setInt(5, recurrenceDays); } else { ps.setNull(5, Types.INTEGER); }
+			ps.setLong(6, task.getId());
 			ps.executeUpdate();
 		} catch (SQLException e) {
-			throw new TasksDAOException("Failed to update task id=" + task.id(), e);
+			throw new TasksDAOException("Failed to update task id=" + task.getId(), e);
 		}
 	}
 
-	@Override
 	/**
 	 * Deletes a single task by id.
 	 *
 	 * @param id task id
 	 * @throws TasksDAOException when the delete fails
 	 */
-	public void deleteTask(int id) throws TasksDAOException {
-		// Validate parameters
-		if (id <= 0) {
-			throw new TasksDAOException("id must be positive");
-		}
+    @Override
+    public void deleteTask(int id) throws TasksDAOException {
+		// validate and delete
+		if (id <= 0) { throw new TasksDAOException("id must be positive"); }
 		try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement("DELETE FROM TASKS WHERE ID = ?")) {
 			ps.setLong(1, id);
 			ps.executeUpdate();
@@ -319,13 +275,14 @@ public class TasksDAOImpl implements ITasksDAO {
 		}
 	}
 
-	@Override
 	/**
 	 * Deletes all tasks from the TASKS table.
 	 *
 	 * @throws TasksDAOException when the delete fails
 	 */
-	public void deleteTasks() throws TasksDAOException {
+    @Override
+    public void deleteTasks() throws TasksDAOException {
+		// bulk delete
 		try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
 			stmt.executeUpdate("DELETE FROM TASKS");
 		} catch (SQLException e) {

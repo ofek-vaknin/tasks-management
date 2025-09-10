@@ -8,7 +8,8 @@ import java.time.LocalDate;
  * RecurringTask represents a task that repeats at a fixed interval of days.
  * Validation is performed in the canonical constructor.
  */
-public record RecurringTask(int id, String title, String description, TaskState state, LocalDate dueDate, int interval) implements Task, ITask {
+public record RecurringTask(int id, String title, String description, TaskState state, LocalDate dueDate, int interval)
+        implements Task, ITask {
 	/**
 	 * Canonical constructor with validations for title, state and interval.
 	 */
@@ -24,16 +25,20 @@ public record RecurringTask(int id, String title, String description, TaskState 
 		}
 	}
     @Override
-    public int getId() { return id; }
+    public int getId() {
+        return id; }
 
     @Override
-    public String getTitle() { return title; }
+    public String getTitle() {
+        return title; }
 
     @Override
-    public String getDescription() { return description; }
+    public String getDescription() {
+        return description; }
 
     @Override
-    public TaskState getState() { return state; }
+    public TaskState getState() {
+        return state; }
 }
 
 

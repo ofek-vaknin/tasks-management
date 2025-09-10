@@ -3,7 +3,6 @@ package il.ac.hit.tasksmanager;
 import il.ac.hit.tasksmanager.model.ModelException;
 import il.ac.hit.tasksmanager.view.MainWindow;
 import il.ac.hit.tasksmanager.viewmodel.TasksListViewModel;
-
 import javax.swing.SwingUtilities;
 
 /**

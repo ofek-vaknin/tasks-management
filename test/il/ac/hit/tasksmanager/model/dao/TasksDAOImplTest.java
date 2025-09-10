@@ -2,6 +2,7 @@ package il.ac.hit.tasksmanager.model.dao;
 
 import il.ac.hit.tasksmanager.model.BasicTask;
 import il.ac.hit.tasksmanager.model.Task;
+import il.ac.hit.tasksmanager.model.entities.ITask;
 import il.ac.hit.tasksmanager.model.entities.state.ToDoState;
 import org.junit.jupiter.api.*;
 
@@ -23,33 +24,37 @@ public class TasksDAOImplTest {
     @Test
     @Order(1)
     public void addAndGetTask() throws TasksDAOException {
-        Task created = dao.addTask(new BasicTask(0L, "Test A", "desc", new ToDoState(), LocalDate.of(2025, 6, 3)));
-        assertTrue(created.id() > 0);
+        dao.addTask(new BasicTask(0, "Test A", "desc", new ToDoState(), LocalDate.of(2025, 6, 3)));
+        ITask[] items = dao.getTasks();
+        assertTrue(items.length > 0);
+        int id = items[0].getId();
 
-        Task fetched = dao.getTask(created.id());
+        ITask fetched = dao.getTask(id);
         assertNotNull(fetched);
-        assertEquals("Test A", fetched.title());
+        assertEquals("Test A", fetched.getTitle());
     }
 
     @Test
     @Order(2)
     public void updateTask() throws TasksDAOException {
-        Task[] all = dao.getTasks();
+        ITask[] all = dao.getTasks();
         assertTrue(all.length > 0);
-        Task first = all[0];
-        Task updated = new BasicTask(first.id(), "Updated Title", first.description(), first.state(), first.dueDate());
+        ITask first = all[0];
+        ITask updated = new BasicTask(first.getId(), "Updated Title", first.getDescription(), first.getState(), (first instanceof Task t) ? t.dueDate() : null);
         dao.updateTask(updated);
 
-        Task fetched = dao.getTask(first.id());
-        assertEquals("Updated Title", fetched.title());
+        ITask fetched2 = dao.getTask(first.getId());
+        assertEquals("Updated Title", fetched2.getTitle());
     }
 
     @Test
     @Order(3)
     public void deleteTask() throws TasksDAOException {
-        Task t = dao.addTask(new BasicTask(0L, "To Delete", null, new ToDoState(), null));
-        dao.deleteTask(t.id());
-        assertNull(dao.getTask(t.id()));
+        dao.addTask(new BasicTask(0, "To Delete", null, new ToDoState(), null));
+        ITask[] after = dao.getTasks();
+        int delId = after[after.length - 1].getId();
+        dao.deleteTask(delId);
+        assertNull(dao.getTask(delId));
     }
 }
 

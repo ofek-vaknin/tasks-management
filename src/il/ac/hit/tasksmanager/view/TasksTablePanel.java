@@ -7,7 +7,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
@@ -20,26 +19,31 @@ public class TasksTablePanel extends JPanel {
     private final DefaultTableModel tableModel;
     private final JTable table;
 
+    /** Creates the table panel and initializes the table model and sorter. */
     public TasksTablePanel() {
         setLayout(new BorderLayout());
+        // build table model
         tableModel = new DefaultTableModel(new String[]{"ID", "Title", "Description", "State", "Due Date", "Type", "Interval"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
         };
+        // create table and enable sorting
         table = new JTable(tableModel);
         table.setAutoCreateRowSorter(true);
         add(new JScrollPane(table), BorderLayout.CENTER);
     }
 
+    /**
+     * Rebuilds the table model from the provided list of tasks.
+     * @param tasks tasks to display
+     */
     public void setTasks(List<Task> tasks) {
-        /**
-         * Rebuild the table model from the provided list of tasks.
-         */
+        // clear table
         tableModel.setRowCount(0);
+        // add rows
         for (Task t : tasks) {
-            // Build a row per task
             Vector<Object> row = new Vector<>();
             row.add(t.id());
             row.add(t.title());
@@ -57,21 +61,23 @@ public class TasksTablePanel extends JPanel {
         }
     }
 
-    public List<Long> getSelectedTaskIds() {
-        /**
-         * Translate the selected rows into a list of task IDs.
-         */
+    /**
+     * Translates the selected rows into a list of task IDs (int).
+     * @return list of selected task identifiers
+     */
+    public List<Integer> getSelectedTaskIds() {
+        // gather selected rows
         int[] selected = table.getSelectedRows();
-        List<Long> ids = new ArrayList<>();
+        List<Integer> ids = new ArrayList<>();
         for (int viewRow : selected) {
-            // Convert view index to model index (sorting may be active)
+            // map view index to model index
             int modelRow = table.convertRowIndexToModel(viewRow);
             Object idObj = tableModel.getValueAt(modelRow, 0);
             if (idObj instanceof Number) {
-                ids.add(((Number) idObj).longValue());
+                ids.add(((Number) idObj).intValue());
             } else if (idObj != null) {
                 try {
-                    ids.add(Long.parseLong(idObj.toString()));
+                    ids.add(Integer.parseInt(idObj.toString()));
                 } catch (NumberFormatException ignored) { }
             }
         }

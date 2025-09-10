@@ -19,18 +19,20 @@ public class ActionsPanel extends JPanel {
      * @param onReport invoked when Generate Report is pressed
      */
     public ActionsPanel(Runnable onAdd, Runnable onEdit, Runnable onDelete, Runnable onRefresh, Runnable onReport) {
-        // === Build actions bar ===
+        // build actions bar
         setLayout(new FlowLayout(FlowLayout.RIGHT, 8, 8));
         JButton addBtn = new JButton("Add");
         JButton editBtn = new JButton("Edit");
         JButton delBtn = new JButton("Delete");
         JButton refreshBtn = new JButton("Refresh");
         JButton reportBtn = new JButton("Generate Report");
+        // add components
         add(addBtn);
         add(editBtn);
         add(delBtn);
         add(refreshBtn);
         add(reportBtn);
+        // wire listeners
         addBtn.addActionListener(e -> onAdd.run());
         editBtn.addActionListener(e -> onEdit.run());
         delBtn.addActionListener(e -> onDelete.run());

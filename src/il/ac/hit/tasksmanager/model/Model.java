@@ -4,11 +4,11 @@ import il.ac.hit.tasksmanager.model.dao.ITasksDAO;
 import il.ac.hit.tasksmanager.model.dao.TasksDAOException;
 import il.ac.hit.tasksmanager.model.dao.TasksDAOProxy;
 import il.ac.hit.tasksmanager.model.dao.TasksDAOImpl;
+import il.ac.hit.tasksmanager.model.entities.ITask;
 import il.ac.hit.tasksmanager.model.entities.state.TaskState;
 import il.ac.hit.tasksmanager.model.entities.state.ToDoState;
 import il.ac.hit.tasksmanager.model.observer.TaskObserver;
 
-import javax.swing.SwingUtilities;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,10 +21,14 @@ import java.util.function.Consumer;
 /**
  * Model implements the application domain logic, backed by a DAO and
  * an executor for asynchronous operations.
- *
- * /*
- *  Observer Pattern: views subscribe via {@link #register(TaskObserver)} and
- *  are notified on data changes using {@link #notifyObservers()}.
+ * Observer Pattern (Subject):
+ * - Observers of type {@link TaskObserver} register via {@link #register(TaskObserver)}
+ * - They are stored internally and notified via {@link #notifyObservers()} after data changes
+ * - Primary observer implementation: {@code il.ac.hit.tasksmanager.viewmodel.TasksListViewModel}
+ * Threading model (non-blocking UI):
+ * - All Derby/DAO operations run on a background {@link ExecutorService} (not on the Swing EDT)
+ *   to avoid blocking the UI while the database touches the filesystem.
+ * - The ViewModel is responsible for re-dispatching any UI updates back to the Swing EDT.
  */
 public class Model implements IModel {
 	private final ITasksDAO dao;
@@ -48,7 +52,11 @@ public class Model implements IModel {
 	public void loadData() {
 		executor.submit(() -> {
 			try {
-				cached = Arrays.asList(dao.getTasks());
+				ITask[] arr = dao.getTasks();
+				cached = Arrays.stream(arr).map(t -> (Task) t).toList();
+				/*
+				 * Observer: notify subscribers that the data set has changed
+				 */
 				notifyObservers();
 			} catch (TasksDAOException e) {
 				System.err.println("Error loading tasks: " + e.getMessage());
@@ -57,15 +65,15 @@ public class Model implements IModel {
 	}
 
 	/**
-	 * Retrieves tasks asynchronously and invokes the given callback on the EDT.
-	 *
-	 * @param callback consumer that will receive the tasks array on the EDT
+	 * Retrieves tasks asynchronously and invokes the given callback directly (no Swing dependency).
+	 * The ViewModel is responsible for EDT dispatching.
 	 */
 	public void getTasksAsync(Consumer<Task[]> callback) {
 		executor.submit(() -> {
 			try {
-				Task[] tasks = dao.getTasks();
-				SwingUtilities.invokeLater(() -> callback.accept(tasks));
+				ITask[] tasks = dao.getTasks();
+				Task[] mapped = Arrays.stream(tasks).map(t -> (Task) t).toArray(Task[]::new);
+				callback.accept(mapped);
 			} catch (TasksDAOException e) {
 				System.err.println("Error loading tasks async: " + e.getMessage());
 			}
@@ -101,7 +109,9 @@ public class Model implements IModel {
 		executor.submit(() -> {
 			try {
 				dao.addTask(new BasicTask(0, title, description, new ToDoState(), null));
-				cached = Arrays.asList(dao.getTasks());
+				ITask[] arr = dao.getTasks();
+				cached = Arrays.stream(arr).map(t -> (Task) t).toList();
+				/* Notify all observers about the data change */
 				notifyObservers();
 			} catch (TasksDAOException e) {
 				System.err.println("Error adding task: " + e.getMessage());
@@ -126,7 +136,9 @@ public class Model implements IModel {
 		executor.submit(() -> {
 			try {
 				dao.addTask(new BasicTask(0, title, description, state == null ? new ToDoState() : state, dueDate));
-				cached = Arrays.asList(dao.getTasks());
+				ITask[] arr = dao.getTasks();
+				cached = Arrays.stream(arr).map(t -> (Task) t).toList();
+				/* Notify all observers about the data change */
 				notifyObservers();
 			} catch (TasksDAOException e) {
 				System.err.println("Error adding task: " + e.getMessage());
@@ -155,7 +167,9 @@ public class Model implements IModel {
 			try {
 				RecurringTask rt = new RecurringTask(0, title, description, state == null ? new ToDoState() : state, dueDate, recurrenceDays);
 				dao.addTask(rt);
-				cached = Arrays.asList(dao.getTasks());
+				ITask[] arr = dao.getTasks();
+				cached = Arrays.stream(arr).map(t -> (Task) t).toList();
+				/* Notify all observers about the data change */
 				notifyObservers();
 			} catch (TasksDAOException e) {
 				System.err.println("Error adding recurring task: " + e.getMessage());
@@ -172,8 +186,10 @@ public class Model implements IModel {
 	public void updateTask(Task task) throws ModelException {
 		executor.submit(() -> {
 			try {
-				dao.updateTask(task);
-				cached = Arrays.asList(dao.getTasks());
+				dao.updateTask((ITask) task);
+				ITask[] arr = dao.getTasks();
+				cached = Arrays.stream(arr).map(t -> (Task) t).toList();
+				/* Notify all observers about the data change */
 				notifyObservers();
 			} catch (TasksDAOException e) {
 				System.err.println("Error updating task: " + e.getMessage());
@@ -191,7 +207,9 @@ public class Model implements IModel {
 		executor.submit(() -> {
 			try {
 				dao.deleteTask(id);
-				cached = Arrays.asList(dao.getTasks());
+				ITask[] arr = dao.getTasks();
+				cached = Arrays.stream(arr).map(t -> (Task) t).toList();
+				/* Notify all observers about the data change */
 				notifyObservers();
 			} catch (TasksDAOException e) {
 				System.err.println("Error deleting task: " + e.getMessage());
@@ -213,6 +231,10 @@ public class Model implements IModel {
 
 	/** Notifies all registered observers about data changes (Observer pattern). */
 	private void notifyObservers() {
+		/*
+		 * Iterate over a snapshot of observers to avoid ConcurrentModification
+		 * if observers add/remove themselves during callback (simple approach).
+		 */
 		for (TaskObserver o : observers) {
 			o.onTasksChanged();
 		}
