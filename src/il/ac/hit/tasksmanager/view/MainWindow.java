@@ -49,7 +49,6 @@ public class MainWindow extends JFrame implements ViewModelObserver {
                 this::onAdd,
                 this::onEdit,
                 this::onDelete,
-                this::refreshTable,
                 this::onReport
         ), BorderLayout.EAST);
 
