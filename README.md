@@ -1,6 +1,6 @@
 # Tasks Manager (Java 24 · Swing · MVVM · Derby Embedded)
 
-![App UI](project-info/tasks-ui.png)
+![App UI](tasks-ui.png)
 
 Small desktop app to manage tasks with an embedded Apache Derby DB.
 
