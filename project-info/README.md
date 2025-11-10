@@ -1,5 +1,7 @@
 # Tasks Manager (Java 24 · Swing · MVVM · Derby Embedded)
 
+![App UI](tasks-ui.png)
+
 Small desktop app to manage tasks with an embedded Apache Derby DB.
 
 ## Run
@@ -24,6 +26,7 @@ Small desktop app to manage tasks with an embedded Apache Derby DB.
 ## Patterns
 - Mandatory: Combinator, Visitor (Records + Pattern Matching)
 - Additional: Proxy (DAO cache), Singleton (DAO), Observer, State 
+
 
 
 
